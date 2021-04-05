@@ -1,21 +1,22 @@
 # Rook
 
-Examples from https://github.com/rook/rook/tree/master/cluster/examples/kubernetes
+Examples from git clone --single-branch --branch v1.5.9 https://github.com/rook/rook.git
 
 Install rook:
 ```
-kubectl create -f rook-operator.yaml
-kubectl create -f rook-cluster.yaml
+cd rook/cluster/examples/kubernetes/ceph
+kubectl create -f crds.yaml -f common.yaml -f operator.yaml
+kubectl create -f cluster.yaml
 ```
 
 Storage:
 ```
-kubectl create -f rook-storageclass.yaml
+kubectl create -f storageclass.yml
 ```
 
 Rook tools:
 ```
-kubectl create -f rook-tools.yaml
+kubectl create -f toolbox.yml
 ```
 
 MySQL demo:
