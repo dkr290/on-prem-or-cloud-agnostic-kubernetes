@@ -1,9 +1,26 @@
 #!/bin/bash
 
-DOCKER_VERSION='19.03.15'
-LINUX_VERSION='focal'
+echo "Install and configure prerequisites"
+cat <<EOF | sudo tee /etc/modules-load.d/containerd.conf
+overlay
+br_netfilter
+EOF
 
-echo "installing docker"
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+# Setup required sysctl params, these persist across reboots.
+cat <<EOF | sudo tee /etc/sysctl.d/99-kubernetes-cri.conf
+net.bridge.bridge-nf-call-iptables  = 1
+net.ipv4.ip_forward                 = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+EOF
+
+# Apply sysctl params without reboot
+sudo sysctl --system
+
+
+echo "installing containerd"
 apt-get update
 apt-get install -y \
     apt-transport-https \
@@ -16,27 +33,21 @@ add-apt-repository \
    $(lsb_release -cs) \
    stable"
 
-if [ "$(lsb_release -cs)" == $LINUX_VERSION ] ; then
-  apt-get update && apt-get install -y docker-ce=$(apt-cache madison docker-ce | grep $DOCKER_VERSION | head -1 | awk '{print $3}') docker-ce-cli containerd.io
-else
-  apt-get update && apt-get install -y docker-ce=$(apt-cache madison docker-ce | grep 17.03 | head -1 | awk '{print $3}')
-fi
 
-sudo mkdir /etc/docker
-cat <<EOF | sudo tee /etc/docker/daemon.json
-{
-  "exec-opts": ["native.cgroupdriver=systemd"],
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "100m"
-  },
-  "storage-driver": "overlay2"
-}
-EOF
+apt-get update && apt-get install -y  containerd.io
 
+sudo mkdir -p /etc/containerd
+containerd config default | sudo tee /etc/containerd/config.toml
+
+sudo systemctl restart containerd
+
+echo "Using the systemd cgroup driver"
+sudo sed -i '/\[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]/a SystemdCgroup=true' /etc/containerd/config.toml
+
+sudo systemctl restart containerd
 
 echo "installing kubernetes"
-apt-get update && apt-get install -y apt-transport-https
+apt-get update && apt-get install -y apt-transport-https ca-certificates curl
 curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
