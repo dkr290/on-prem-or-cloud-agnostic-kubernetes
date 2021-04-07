@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    # add an annotation indicating the issuer to use.
+    cert-manager.io/cluster-issuer: selfsigned-issuer
+  name: myapp-ssl
+  namespace: default
+spec:
+  rules:
+  - host: myapp.example.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: myapp
+            
+            port: 
+              number: 3000
+        path: /
+        pathType: Prefix
+  tls: # < placing a host in the TLS config will indicate a certificate should be created
+  - hosts:
+    - myapp.example.local
+    secretName: myapp-cert # < cert-manager will store the created certificate in this secret.
+
+
+
